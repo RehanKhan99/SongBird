@@ -560,7 +560,7 @@ flowchart TD
 | Deliverable | Status |
 |---|---|
 | GitHub README | Complete |
-| 2-minute strategy video | link here |
+| 2-minute strategy video | [Watch Here](https://youtu.be/G0i31Oel2yA?si=pvCycmwmJ-SANWOR) |
 
 ---
 
