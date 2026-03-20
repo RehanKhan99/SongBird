@@ -376,11 +376,11 @@ Parametric insurance removes moral hazard for legitimate claims but introduces o
 | F1 | GPS Zone Spoofing | Velocity check (3d) + isMock flag + IP geolocation cross-check |
 | F2 | Activity Inflation | Platform Activity Score (CFS Signal 2) + BFM delivery velocity baseline |
 | F3 | Duplicate Claims | One Aadhaar = one policy + auto-claim idempotency guard |
-| F5 | Synthetic Identity | Aadhaar eKYC + selfie liveness at onboarding |
-| F6 | Cooling-off Gaming | 7-day standard / 14-day monsoon onset / 72-hr pause for new enrollments during storm watch |
-| F7 | Partial Activity Claim | Parametric design eliminates this — payout is fixed at trigger time regardless of actual activity during event |
-| F8 | Trigger-Sitting | Signal 6 pre-trigger productivity score (zone hot + 0 deliveries = score 0.10) |
-| F9 | Trigger-Minimizing | Signal 6 peer ratio check (zone hot, low deliveries vs peers → score 0.75 → CONDITIONAL) |
+| F4 | Synthetic Identity | Aadhaar eKYC + selfie liveness at onboarding |
+| F5 | Cooling-off Gaming | 7-day standard / 14-day monsoon onset / 72-hr pause for new enrollments during storm watch |
+| F6 | Partial Activity Claim | Parametric design eliminates this — payout is fixed at trigger time regardless of actual activity during event |
+| F7 | Trigger-Sitting | Signal 6 pre-trigger productivity score (zone hot + 0 deliveries = score 0.10) |
+| F8 | Trigger-Minimizing | Signal 6 peer ratio check (zone hot, low deliveries vs peers → score 0.75 → CONDITIONAL) |
 
 ---
 
