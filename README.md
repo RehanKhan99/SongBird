@@ -106,7 +106,7 @@ It's a Wednesday in July, 7:45 PM. Raju is mid-shift in Koramangala, Bengaluru �
 8:29 PM  Pre-fraud gates run for Raju (milliseconds):
          → GPS velocity check: 18 km/h. No teleport. ✓
          → Zone eligibility: 34 workers vs baseline 28. Normal. ✓
-         → Temporal gate: BFM shows Raju works Wednesday 8PM (prob 0.93). ✓
+         → Temporal gate: BFM shows Raju works Wednesday 8PM (prob 0.91). ✓
 
 8:30 PM  Claim Fraud Score (CFS) runs for all 34 workers in parallel (~1.2 sec):
          Raju's CFS = 0.966 → AUTO-APPROVE ✓
@@ -139,7 +139,7 @@ Raju did nothing. No claim form. No phone call. No waiting.
 | 2 | Aadhaar eKYC via DigiLocker — OTP to Aadhaar-linked mobile, verified < 2 min |
 | 3 | Platform ID auto-verified — worker enters Zepto/Blinkit worker ID, cross-checked via MoU API |
 | 4 | Selfie liveness check — biometric liveness detection (prevents synthetic identity fraud) |
-| 5 | M1 calculates onboarding premium — city + zone + season + new worker surcharge |
+| 5 | M1 calculates onboarding premium — city + zone + season + new worker surcharge (1.15× standard; 1.20× if no GPS history available on platform) |
 | 6 | Worker selects policy tier — Basic ₹79 / Standard ₹149 / Premium ₹249 (actual M1 charge shown) |
 | 7 | UPI AutoPay mandate (Bima ASBA) — premium blocked in UPI account, debited after policy issuance |
 | 8 | Policy issued → app shows "COVERED" — 7-day cooling-off starts, BFM begins building baseline |
@@ -215,14 +215,16 @@ These are **base premiums (Factor 1)**. The actual weekly charge is computed by 
 | 2. City Risk Index | Historical event frequency per city (0.50–1.00) | Mumbai 0.91×, Bengaluru 0.72× |
 | 3. Zone Multiplier | Zone-level flood/event history vs city average | Koramangala 1.14×, HSR Layout 0.89× |
 | 4. Seasonal Loading | Time-of-year risk (monsoon vs dry season) | June 1.35×, December 0.55× |
-| 5. Adverse Selection Penalty | New worker surcharge — removed after Week 13 as behavioral history builds | Week 1: 1.15×, Week 13+: 1.00× |
-| 6. BFM Adjustment | Zone Trust Score (ZTS) — behavioral consistency | ZTS 80–100: 0.95×, ZTS 60–79: 1.00×, ZTS 40–59: 1.05×, ZTS < 40: 1.10× |
+| 5. Adverse Selection Penalty | New worker surcharge — removed after Week 13 as behavioral history builds. Elevated 1.20× variant applies in week 1 when no historical GPS data was available at onboarding (platform tenure < 30 days or data not retained) | Week 1: 1.15× (standard) / 1.20× (no GPS history); Weeks 2–4: 1.08×; Weeks 5–12: 1.03×; Week 13+: 1.00× |
+| 6. BFM Adjustment | Zone Trust Score (ZTS) — behavioral consistency. Only applies after 4+ weeks of data; neutral 1.00× during cold start (weeks 1–4) | ZTS 80–100: 0.95×, ZTS 60–79: 1.00×, ZTS 40–59: 1.05×, ZTS < 40: 1.10× |
 | 7. Income Band Multiplier | Insured exposure proportional to earnings | LOW: 0.80×, MID: 1.00×, HIGH: 1.20×, ULTRA: 1.40× |
 
 **Affordability ceiling:** `min(calculated_premium, 5% × worker_8wk_avg_income)` — premium is always capped at 5% of the worker's 8-week trailing average income.
 
 **Why 5%?**
 - At median income ₹5,800/week, 5% = ₹290/week. The Standard tier base (₹149) is only 2.6% of median income — the ceiling is a safety net for edge cases where M1 computes a higher charge for HIGH/ULTRA earners, not the typical case. For a LOW-band worker earning ₹3,000/week, the ceiling caps their premium at ₹150/week regardless of M1's output.
+> **Note:** The 5% ceiling is a preliminary benchmark based on 2019–2023 Mumbai data and remains subject to adjustment as new research is done or new methods are envisioned..
+
 
 **Raju's premium journey (Standard tier, Koramangala, Bengaluru):**
 - Week 1 (June, new worker): ₹190/week
@@ -291,7 +293,7 @@ SongBird will use three interconnected models. They will run at different freque
 |---|---|---|---|---|
 | M1 | Dynamic Premium Pricing Engine | Every Friday | Actuarial (7 factors) + ML | ₹ weekly premium (5% affordability capped) |
 | M2 | Behavioral Fingerprint Model (BFM) | Hourly, always | Statistical baseline (convex hull, temporal matrix, rolling avg) | ZTS (0–100), BDS (0–1), zone polygon, active hours matrix |
-| M3 | Claim Fraud Score (CFS) Engine | Only on trigger | Supervised classifier (LightGBM) | CFS score (0–1) → approve / hold / reject |
+| M3 | Claim Fraud Score (CFS) Engine | Only on trigger | Supervised classifier (LightGBM) | CFS score (0–1) → approve / hold / reject + payout amount |
 
 ### M1: Dynamic Premium Pricing Engine
 Calculates the actuarially fair weekly premium for each worker in their specific zone at the current time of year. Not a flat fee — adjusted for city risk, zone flood history, season, worker tenure, behavioral trust score, and income band. Recalculates every Friday. Retrains quarterly on new historical event data.
@@ -299,13 +301,14 @@ Calculates the actuarially fair weekly premium for each worker in their specific
 ### M2: Behavioral Fingerprint Model (BFM)
 Builds a per-worker "digital twin" of normal operating behavior from hourly platform GPS pings. Learns:
 - **Home Zone Polygon** — convex hull of all delivery GPS points (4-week window) → defines the worker's insured zone
-- **Temporal Activity Matrix** — 24-hour × 7-day grid where each cell holds the probability the worker is active at that hour on that day (most cells are 0.00 or near-zero — e.g., Raju's Wednesday 8PM cell = 0.93, all Tuesday cells = 0.00)
+- **Temporal Activity Matrix** — 24-hour × 7-day grid where each cell holds the probability the worker is active at that hour on that day (most cells are 0.00 or near-zero — e.g., Raju's Wednesday 8PM cell = 0.91, all Tuesday cells = 0.00)
 - **Delivery Velocity Baseline** — rolling 4-week average of deliveries/hour by time-of-day
 - **Per-Delivery Earnings Rate** — rolling 8-week average of ₹/delivery (used in payout calculation)
 
 Outputs:
 - **ZTS (Zone Trust Score, 0–100):** Long-run behavioral consistency. Used by M1 (Factor 6) to adjust premium, and used by M3 as a zone trust signal at claim time.
 - **BDS (Behavioral Deviation Score, 0–1):** How consistent is the worker's behavior *right now* vs their baseline. Computed separately from ZTS using a 4-component formula (zone, temporal, velocity, intraday). Used by M3 as the BFM_Behavioral_Deviation_Score signal at claim time.
+- **Real Zone Risk + Delivery Velocity:** Worker's actual zone risk refinement and delivery velocity baseline. Used by M1 to refine the zone multiplier (Factor 3) and income base for premium calculation.
 
 ### M3: Claim Fraud Score (CFS) Engine
 Runs in parallel for every eligible worker when a trigger fires. Produces a single decision per worker in < 100ms (LightGBM inference); total for a zone of ~30 workers runs in ~1–2 seconds end-to-end.
@@ -348,6 +351,7 @@ Parametric insurance removes moral hazard for legitimate claims but introduces o
 - Aadhaar eKYC via DigiLocker (one Aadhaar = one policy, duplicate prevention enforced at enrollment)
 - Platform worker ID cross-check via MoU API
 - Selfie liveness check (biometric liveness detection)
+- Optional initial ZTS check: if the Platform_API has historical GPS delivery data, an initial Zone Trust Score is computed; workers below ZTS 40 go to manual review. If no historical data exists (new platform worker or data not retained), policy is issued under BFM cold-start defaults with an elevated 1.20× week-1 adverse selection penalty. Zone is always derived by BFM from live GPS pings — workers never input their zone.
 - Auto-claim architecture eliminates worker-submitted duplicates entirely — claims are system-initiated, not worker-submitted
 
 **Layer 2 — Behavioral Baseline Engine (Ongoing)**
@@ -362,10 +366,10 @@ Parametric insurance removes moral hazard for legitimate claims but introduces o
 
 **Layer 4 — Claim Fraud Score / CFS (Automated decision)**
 - LightGBM classifier, 6 signals, < 100ms inference per worker
-- Signal 6 (Pre-Trigger Zone Productivity, weight 0.20) specifically catches F8 trigger-sitters — workers who travel to the zone after a forecast, sit idle, and wait for the trigger. If zone was hot (peers earning normally) and worker had 0 deliveries → score = 0.10.
+- Signal 6 (Pre-Trigger Zone Productivity, weight 0.20) specifically catches F7 trigger-sitters — workers who travel to the zone after a forecast, sit idle, and wait for the trigger. If zone was hot (peers earning normally) and worker had 0 deliveries → score = 0.10.
 
 **Layer 5 — Post-Claim Audit (Macro-level)**
-- Real-time social graph (Isolation Forest) on every trigger event: same referrer chain + same GPS spoofing app binary hash + same dark store assignment with simultaneous eligibility → dense cluster → auto-flag
+- Real-time social graph (Isolation Forest) on every trigger event: same dark store assignment with simultaneous eligibility → dense cluster → auto-flag
 - Map matching audit (OSRM against OpenStreetMap) for CONDITIONAL/HOLD cases — supplementary reviewer signal only
 - Quarterly CFS retraining on confirmed fraud labels
 
@@ -380,7 +384,7 @@ Parametric insurance removes moral hazard for legitimate claims but introduces o
 | F5 | Cooling-off Gaming | 7-day standard / 14-day monsoon onset / 72-hr pause for new enrollments during storm watch |
 | F6 | Partial Activity Claim | Parametric design eliminates this — payout is fixed at trigger time regardless of actual activity during event |
 | F7 | Trigger-Sitting | Signal 6 pre-trigger productivity score (zone hot + 0 deliveries = score 0.10) |
-| F8 | Trigger-Minimizing | Signal 6 peer ratio check (zone hot, low deliveries vs peers → score 0.75 → CONDITIONAL) |
+| F8 | Trigger-Minimizing | Signal 6 peer ratio check (zone hot, low deliveries vs peers → score 0.75) — full CFS = 0.931 → AUTO-APPROVE (accepted outcome; syndicate-scale F8 caught by Gate 3e) |
 
 ---
 
@@ -427,8 +431,6 @@ When the trigger fires, the system counts active workers in the zone against the
 
 **Social graph — device fingerprint clustering (Layer 5):**
 On every trigger event, an Isolation Forest runs across the eligibility list. The key edges:
-- Same referrer/recruiter chain (Telegram invite links create traceable referral trees)
-- Same GPS spoofing app binary hash (syndicate members share the same app — device fingerprint from the platform payload)
 - Same dark store assignment + simultaneous eligibility spike
 - Enrollment timestamp clustering (all joined within the same 48-hour window)
 
@@ -656,8 +658,6 @@ SongBird will operate under the **IRDAI (Regulatory Sandbox) Regulations, 2025**
 - **Bima Sugam:** Website launched September 2025; transactional phase (starting with motor insurance) expected Q2 2026, with health and life products following in FY27. SongBird will integrate as a distribution channel once the platform opens to non-motor products.
 - **Basis risk disclosure (mandatory in policy wording):** Payout will be triggered by objective threshold crossing, not by actual income loss. A worker may experience income loss without a trigger firing (e.g., rain at 30mm/hr when threshold is 35mm/hr). This gap — basis risk — is a disclosed, inherent characteristic of parametric insurance.
 - **Claim settlement SLA:** Within the timeframe prescribed by IRDAI Protection of Policyholders' Interests Regulations (non-investigation claims). Auto-approved claims (CFS ≥ 0.80) target payout within 2 minutes.
-- **DPDP Act 2023:** All GPS data processing will operate on platform API data only. Device-level access (cell tower, accelerometer) excluded under data minimization principles.
-
 ---
 
 *SongBird InsurTech | Hackathon Phase 1 | March 2026*
