@@ -13,7 +13,7 @@ class WorkerRegister(BaseModel):
     # not accoding to income levels needs more thinking on this
     # cause someone might be too low even for the low band
     # or too high even for the utlra band
-    aadhaar_last: str  # mock KYC last 4 digits only
+    aadhaar_last4: str  # mock KYC last 4 digits only
 
 
 class WorkerLoginRequest(BaseModel):

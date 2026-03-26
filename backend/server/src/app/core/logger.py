@@ -24,7 +24,9 @@ _formatter = structlog.stdlib.ProcessorFormatter(
     foreign_pre_chain=SHARED_PROCESSORS,
     processors=[
         structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-        structlog.dev.ConsoleRenderer() if settings.ENVIRONMENT.value == "local" else structlog.processors.JSONRenderer(),
+        structlog.dev.ConsoleRenderer()
+        if settings.ENVIRONMENT.value == "local"
+        else structlog.processors.JSONRenderer(),
     ],
 )
 

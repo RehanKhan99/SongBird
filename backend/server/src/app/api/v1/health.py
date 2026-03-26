@@ -2,7 +2,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.health import check_database_health, check_redis_health
 from ...core.utils.cache import async_get_redis

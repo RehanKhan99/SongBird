@@ -1,15 +1,20 @@
 import hashlib
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
 from ...core.config import settings
-from ...core.exceptions.http_exceptions import BadRequestException, DuplicateValueException, UnauthorizedException
+from ...core.constants import KYC_STATUS_MOCK
+from ...core.exceptions.http_exceptions import (
+    BadRequestException,
+    DuplicateValueException,
+    UnauthorizedException,
+)
 from ...core.schemas import Token
-from ...core.security import create_access_token
+from ...core.security import blacklist_token, create_access_token, oauth2_scheme
 from ...schemas.worker import WorkerLoginRequest, WorkerRead, WorkerRegister
-from ..dependencies import DBSession
+from ..dependencies import DBSession, get_current_worker
 
 router = APIRouter(prefix="/workers", tags=["workers"]) 
 
@@ -37,7 +42,7 @@ async def register_worker(body: WorkerRegister, db: DBSession) -> dict[str, Any]
         zone_id=body.zone_id,
         income_band=body.income_band.upper(),
         aadhaar_hash=aadhaar_hash,
-        kyc_status="mock_verified",
+        kyc_status=KYC_STATUS_MOCK,
     )
     db.add(worker)
     await db.commit()
@@ -62,3 +67,12 @@ async def login_worker(body: WorkerLoginRequest, db: DBSession) -> Token:
         access_token=await create_access_token({"sub": worker.phone_number}),
         token_type="bearer",
     )
+
+
+@router.post("/logout", status_code=204)
+async def logout_worker(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    db: DBSession,
+    _: Annotated[dict, Depends(get_current_worker)],  # validate token before blacklisting
+) -> None:
+    await blacklist_token(token, db)

@@ -10,6 +10,7 @@ from .db.database import Base, async_engine
 from .logger import _handler  # noqa: F401 — ensures logging is configured on import
 from .utils import cache
 
+
 # @Lifespan 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:

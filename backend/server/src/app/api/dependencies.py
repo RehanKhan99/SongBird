@@ -27,11 +27,15 @@ async def get_admin_user(
 
     if "@" in token_data.username_or_email:
         result = await db.execute(
-            select(User).where(User.email == token_data.username_or_email, User.is_deleted.is_(False))
+            select(User).where(
+                User.email == token_data.username_or_email, User.is_deleted.is_(False)
+            )
         )
     else:
         result = await db.execute(
-            select(User).where(User.username == token_data.username_or_email, User.is_deleted.is_(False))
+            select(User).where(
+                User.username == token_data.username_or_email, User.is_deleted.is_(False)
+            )
         )
 
     user = result.scalar_one_or_none()

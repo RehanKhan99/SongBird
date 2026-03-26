@@ -53,7 +53,9 @@ async def create_user(body: UserCreate, db: DBSession, _: AdminUser) -> dict[str
 
 
 @router.patch("/{user_id}", response_model=UserRead)
-async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DBSession, _: AdminUser) -> dict[str, Any]:
+async def update_user(
+    user_id: uuid.UUID, body: UserUpdate, db: DBSession, _: AdminUser
+) -> dict[str, Any]:
     # Import here to avoid circular imports
     from ...models.user import User
 

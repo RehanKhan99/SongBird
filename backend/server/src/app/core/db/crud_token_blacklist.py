@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,7 +7,12 @@ from .token_blacklist import TokenBlacklist
 
 
 async def is_token_blacklisted(db: AsyncSession, token: str) -> bool:
-    result = await db.execute(select(TokenBlacklist).where(TokenBlacklist.token == token))
+    result = await db.execute(
+        select(TokenBlacklist).where(
+            TokenBlacklist.token == token,
+            TokenBlacklist.expires_at > datetime.now(UTC),
+        )
+    )
     return result.scalar_one_or_none() is not None
 
 

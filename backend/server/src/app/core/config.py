@@ -1,11 +1,11 @@
 import os
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import SecretStr, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class EnvironmentOption(str, Enum):
+class EnvironmentOption(StrEnum):
     LOCAL = "local"
     STAGING = "staging"
     PRODUCTION = "production"
@@ -13,7 +13,7 @@ class EnvironmentOption(str, Enum):
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=os.path.join(os.path.dirname(__file__), "..", "..", ".env"),
+        env_file=os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env"),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
@@ -70,6 +70,6 @@ class Settings(BaseSettings):
     TWILIO_WHATSAPP_FROM: str = ""
     TWILIO_WHATSAPP_TO: str = ""
 
-    MOCK_OTP: str = ""
+    MOCK_OTP: str = "123456"
 
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]

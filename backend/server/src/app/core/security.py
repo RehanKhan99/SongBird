@@ -1,6 +1,7 @@
-from datetime import UTC, datetime, timedelta
-from enum import Enum
+import asyncio
 import logging
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import Any, Literal
 
 import bcrypt
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/login")
 
 
-class TokenType(str, Enum):
+class TokenType(StrEnum):
     ACCESS = "access"
     REFRESH = "refresh"
 
@@ -28,7 +29,8 @@ def get_password_hash(password: str) -> str:
 
 
 async def verify_password(plain: str, hashed: str) -> bool:
-    return bcrypt.checkpw(plain.encode(), hashed.encode())
+    # bcrypt is CPU-bound : offload to thread to avoid blocking the event loop
+    return await asyncio.to_thread(bcrypt.checkpw, plain.encode(), hashed.encode())
 
 
 async def authenticate_user(
@@ -38,9 +40,13 @@ async def authenticate_user(
     from ..models.user import User
 
     if "@" in username_or_email:
-        result = await db.execute(select(User).where(User.email == username_or_email, User.is_deleted.is_(False)))
+        result = await db.execute(
+            select(User).where(User.email == username_or_email, User.is_deleted.is_(False))
+        )
     else:
-        result = await db.execute(select(User).where(User.username == username_or_email, User.is_deleted.is_(False)))
+        result = await db.execute(
+            select(User).where(User.username == username_or_email, User.is_deleted.is_(False))
+        )
 
     user = result.scalar_one_or_none()
     if not user or not await verify_password(password, user.hashed_password):
@@ -58,7 +64,9 @@ def _make_token(data: dict[str, Any], token_type: str, expires_delta: timedelta)
 
 
 async def create_access_token(data: dict[str, Any]) -> str:
-    return _make_token(data, TokenType.ACCESS, timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+    return _make_token(
+        data, TokenType.ACCESS, timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
 
 
 async def create_refresh_token(data: dict[str, Any]) -> str:
@@ -69,7 +77,9 @@ async def verify_token(token: str, expected_type: TokenType, db: AsyncSession) -
     if await is_token_blacklisted(db, token):
         return None
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY.get_secret_value(), algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(
+            token, settings.SECRET_KEY.get_secret_value(), algorithms=[settings.ALGORITHM]
+        )
         sub: str | None = payload.get("sub")
         token_type: str | None = payload.get("token_type")
         if sub is None or token_type != expected_type:
@@ -81,9 +91,11 @@ async def verify_token(token: str, expected_type: TokenType, db: AsyncSession) -
 
 async def blacklist_token(token: str, db: AsyncSession) -> None:
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY.get_secret_value(), algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(
+            token, settings.SECRET_KEY.get_secret_value(), algorithms=[settings.ALGORITHM]
+        )
         exp = payload.get("exp")
         if exp:
-            await create_blacklisted_token(db, token, datetime.fromtimestamp(exp))
+            await create_blacklisted_token(db, token, datetime.fromtimestamp(exp, tz=UTC))
     except JWTError as e:
         logger.warning("blacklist_token: could not decode token — %s", e)
