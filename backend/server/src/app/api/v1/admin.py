@@ -3,9 +3,10 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 
-from ...core.constants import POLICY_STATUS_ACTIVE, TRIGGER_STATUS_ACTIVE
 from ...schemas.admin import DashboardStats
-from ...schemas.claim import ClaimRead
+from ...schemas.claim import ClaimDecision, ClaimRead
+from ...schemas.policy import PolicyStatus
+from ...schemas.trigger import TriggerStatus
 from ..dependencies import DBSession, get_admin_user
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -24,20 +25,20 @@ async def get_dashboard(db: DBSession, _: AdminUser) -> DashboardStats:
     total_workers = (await db.execute(select(func.count()).select_from(Worker))).scalar_one()
     active_policies = (
         await db.execute(
-            select(func.count()).select_from(Policy).where(Policy.status == POLICY_STATUS_ACTIVE)
+            select(func.count()).select_from(Policy).where(Policy.status == PolicyStatus.ACTIVE)
         )
     ).scalar_one()
     active_triggers = (
         await db.execute(
             select(func.count()).select_from(TriggerEvent).where(
-                TriggerEvent.status == TRIGGER_STATUS_ACTIVE
+                TriggerEvent.status == TriggerStatus.ACTIVE
             )
         )
     ).scalar_one()
     pending_review = (
         await db.execute(
             select(func.count()).select_from(Claim).where(
-                Claim.decision.in_(["CONDITIONAL", "HOLD"])
+                Claim.decision.in_([ClaimDecision.CONDITIONAL, ClaimDecision.HOLD])
             )
         )
     ).scalar_one()
@@ -57,7 +58,7 @@ async def get_claims_for_review(db: DBSession, _: AdminUser) -> list[dict[str, A
 
     result = await db.execute(
         select(Claim)
-        .where(Claim.decision.in_(["CONDITIONAL", "HOLD"]))
+        .where(Claim.decision.in_([ClaimDecision.CONDITIONAL, ClaimDecision.HOLD]))
         .order_by(Claim.created_at.asc())
     )
     claims = result.scalars().all()
