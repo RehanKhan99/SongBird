@@ -28,7 +28,7 @@ router = APIRouter(prefix="/workers", tags=["workers"])
 async def register_worker(
     body: WorkerRegister, 
     db: DBSession,
-    # platform_client: PlatformClientDependency,
+    # platform_client: PlatformClientDependency
 ) -> dict[str, Any]:
     # Import here to avoid circular imports
     from ...models.worker import Worker
