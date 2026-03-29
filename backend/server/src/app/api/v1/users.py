@@ -71,7 +71,7 @@ async def update_user(
     if body.email is not None:
         user.email = body.email
     if body.password is not None:
-        user.hashed_password = get_password_hash(body.password)
+        user.hashed_password = await get_password_hash(body.password)
 
     await db.commit()
     await db.refresh(user)
