@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -21,7 +21,7 @@ class TriggerEvent(UUIDMixin, TimestampMixin, Base):
     )
     status: Mapped[str] = mapped_column(String(20), default=TriggerStatus.ACTIVE, index=True)
     fired_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=None, init=False  # populated at trigger fire time
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), init=False
     )
     closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None

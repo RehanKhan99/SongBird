@@ -22,13 +22,17 @@ class KycStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class MandateStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+    FAILING = "FAILING"
+    PAUSED = "PAUSED"
+
+
 class WorkerRegister(BaseModel):
     name: str
     phone_number: str
     platform_id: str
-    city: str
-    zone_id: str
-    income_band: IncomeBand
     aadhaar_last4: str  # mock KYC last 4 digits only
 
 
@@ -42,9 +46,12 @@ class WorkerRead(BaseModel):
     name: str
     phone_number: str
     platform_id: str
-    city: str
-    zone_id: str
-    income_band: IncomeBand
+    city: str | None          # None until PlatformClient DI is wired
+    zone_id: str | None
+    income_band: IncomeBand | None
     kyc_status: KycStatus
+    mandate_status: MandateStatus
+    mandate_failures: int
+    auto_renew_tier: str | None
 
     model_config = {"from_attributes": True}

@@ -1,13 +1,13 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.db.database import Base
 from ..core.db.models import TimestampMixin, UUIDMixin
-from ..schemas.policy import PolicyStatus, PolicyTier
+from ..schemas.policy import PolicyStatus
 
 
 class Policy(UUIDMixin, TimestampMixin, Base):
@@ -23,6 +23,7 @@ class Policy(UUIDMixin, TimestampMixin, Base):
     # optional with defaults
     tier: Mapped[str] = mapped_column(String(20))  # BASIC/STANDARD/PREMIUM — required at creation
     status: Mapped[str] = mapped_column(String(20), default=PolicyStatus.ACTIVE, index=True)
+    auto_renew_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     policy_week: Mapped[int] = mapped_column(Integer, default=1)
     cooling_off_ends_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None

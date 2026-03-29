@@ -12,16 +12,27 @@ from ...core.exceptions.http_exceptions import (
 )
 from ...core.schemas import Token
 from ...core.security import blacklist_token, create_access_token, oauth2_scheme
-from ...schemas.worker import KycStatus, WorkerLoginRequest, WorkerRead, WorkerRegister
+from ...schemas.worker import (
+    KycStatus,
+    MandateStatus,
+    WorkerLoginRequest,
+    WorkerRead,
+    WorkerRegister,
+)
 from ..dependencies import DBSession, get_current_worker
 
 router = APIRouter(prefix="/workers", tags=["workers"]) 
 
 
 @router.post("/register", status_code=201, response_model=WorkerRead)
-async def register_worker(body: WorkerRegister, db: DBSession) -> dict[str, Any]:
+async def register_worker(
+    body: WorkerRegister, 
+    db: DBSession,
+    # platform_client: PlatformClientDependency,
+) -> dict[str, Any]:
     # Import here to avoid circular imports
     from ...models.worker import Worker
+    # BFM baseline import goes here when model is ready
 
     exists = await db.execute(
         select(Worker).where(
@@ -33,17 +44,30 @@ async def register_worker(body: WorkerRegister, db: DBSession) -> dict[str, Any]
 
     aadhaar_hash = hashlib.sha256(body.aadhaar_last4.encode()).hexdigest()
 
+    # Fetch live derived data from mock Platform API via adapter
+    # platform_data = await platform_client.get_worker_profile(body.platform_id)
+    
+    # if platform_data.tenure_days < 30:
+    #     income_band = "MID"  # Cold-start rule
+    # else:
+    #     income_band = platform_data.income_band
+        
     worker = Worker(
         name=body.name,
         phone_number=body.phone_number,
         platform_id=body.platform_id,
-        city=body.city,
-        zone_id=body.zone_id,
-        income_band=body.income_band.upper(),
+        # city=platform_data.city,
+        # zone_id=platform_data.assigned_zone,
+        # income_band=income_band,
         aadhaar_hash=aadhaar_hash,
         kyc_status=KycStatus.MOCK_VERIFIED,
+        mandate_status=MandateStatus.INACTIVE,
+        mandate_failures=0
     )
     db.add(worker)
+    
+    # seed BFM Baseline after BFM model is ready
+    
     await db.commit()
     await db.refresh(worker)
     return {c.name: getattr(worker, c.name) for c in Worker.__table__.columns}
@@ -52,7 +76,7 @@ async def register_worker(body: WorkerRegister, db: DBSession) -> dict[str, Any]
 @router.post("/login", response_model=Token)
 async def login_worker(body: WorkerLoginRequest, db: DBSession) -> Token:
     # again
-    from ...models.worker import Worker
+    from ...models.worker import Worker  # Import here to avoid circular imports
 
     if body.otp != settings.MOCK_OTP:
         raise UnauthorizedException("Invalid OTP.")
