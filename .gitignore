@@ -1,0 +1,16 @@
+node_modules/
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+
+.env
+
+.vscode/
+
