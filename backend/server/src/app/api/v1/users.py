@@ -13,6 +13,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 AdminUser = Annotated[dict[str, Any], Depends(get_admin_user)]
 
+
 # me: i am god
 @router.get("/me", response_model=UserRead)
 async def get_me(current_user: AdminUser) -> dict[str, Any]:
@@ -59,16 +60,14 @@ async def update_user(
     # Import here to avoid circular imports
     from ...models.user import User
 
-    result = await db.execute(
-        select(User).where(User.id == user_id, User.is_deleted.is_(False))
-    )
+    result = await db.execute(select(User).where(User.id == user_id, User.is_deleted.is_(False)))
     user = result.scalar_one_or_none()
     if user is None:
         raise NotFoundException("User not found.")
 
     if body.name is not None:
         user.name = body.name
-    if body.email is not None:
+    if body.email is not None and body.email != user.email:
         user.email = body.email
     if body.password is not None:
         user.hashed_password = await get_password_hash(body.password)

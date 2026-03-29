@@ -21,12 +21,12 @@ from ...schemas.worker import (
 )
 from ..dependencies import DBSession, get_current_worker
 
-router = APIRouter(prefix="/workers", tags=["workers"]) 
+router = APIRouter(prefix="/workers", tags=["workers"])
 
 
 @router.post("/register", status_code=201, response_model=WorkerRead)
 async def register_worker(
-    body: WorkerRegister, 
+    body: WorkerRegister,
     db: DBSession,
     # platform_client: PlatformClientDependency
 ) -> dict[str, Any]:
@@ -42,16 +42,18 @@ async def register_worker(
     if exists.scalar_one_or_none():
         raise DuplicateValueException("Phone number or platform ID already registered.")
 
-    aadhaar_hash = hashlib.sha256(body.aadhaar_last4.encode()).hexdigest()
+        # Use a per-worker unique value (phone_number + Aadhaar last4) to avoid hash collisions
+        aadhaar_hash_input = f"{body.phone_number}:{body.aadhaar_last4}"
+        aadhaar_hash = hashlib.sha256(aadhaar_hash_input.encode()).hexdigest()
 
     # Fetch live derived data from mock Platform API via adapter
     # platform_data = await platform_client.get_worker_profile(body.platform_id)
-    
+
     # if platform_data.tenure_days < 30:
     #     income_band = "MID"  # Cold-start rule
     # else:
     #     income_band = platform_data.income_band
-        
+
     worker = Worker(
         name=body.name,
         phone_number=body.phone_number,
@@ -62,12 +64,12 @@ async def register_worker(
         aadhaar_hash=aadhaar_hash,
         kyc_status=KycStatus.MOCK_VERIFIED,
         mandate_status=MandateStatus.INACTIVE,
-        mandate_failures=0
+        mandate_failures=0,
     )
     db.add(worker)
-    
+
     # seed BFM Baseline after BFM model is ready
-    
+
     await db.commit()
     await db.refresh(worker)
     return {c.name: getattr(worker, c.name) for c in Worker.__table__.columns}
