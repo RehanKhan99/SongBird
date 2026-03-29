@@ -44,7 +44,7 @@ async def create_user(body: UserCreate, db: DBSession, _: AdminUser) -> dict[str
         name=body.name,
         username=body.username,
         email=body.email,
-        hashed_password=get_password_hash(body.password),
+        hashed_password=await get_password_hash(body.password),
     )
     db.add(user)
     await db.commit()

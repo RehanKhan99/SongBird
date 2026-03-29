@@ -24,8 +24,10 @@ class TokenType(StrEnum):
     REFRESH = "refresh"
 
 
-def get_password_hash(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+async def get_password_hash(password: str) -> str:
+    return await asyncio.to_thread(
+        lambda: bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    )
 
 
 async def verify_password(plain: str, hashed: str) -> bool:
@@ -60,7 +62,9 @@ def _make_token(data: dict[str, Any], token_type: str, expires_delta: timedelta)
         "exp": datetime.now(UTC).replace(tzinfo=None) + expires_delta,
         "token_type": token_type,
     })
-    return jwt.encode(payload, settings.SECRET_KEY.get_secret_value(), algorithm=settings.ALGORITHM)
+    return str(
+        jwt.encode(payload, settings.SECRET_KEY.get_secret_value(), algorithm=settings.ALGORITHM)
+    )
 
 
 async def create_access_token(data: dict[str, Any]) -> str:

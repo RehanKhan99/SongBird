@@ -7,12 +7,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 
 class UUIDMixin:
-    # init=False: auto-generated
+    # init=False: auto-generated using uuidv4
     id: Mapped[uuid_pkg.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid_pkg.uuid4,
-        server_default=text("gen_random_uuid()"),
         init=False,
     )
 

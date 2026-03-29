@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.db.database import async_get_db
-from ..core.exceptions.http_exceptions import UnauthorizedException
+from ..core.exceptions.http_exceptions import ForbiddenException, UnauthorizedException
 from ..core.security import TokenType, oauth2_scheme, verify_token
 
 # db session
@@ -41,6 +41,8 @@ async def get_admin_user(
     user = result.scalar_one_or_none()
     if user is None:
         raise UnauthorizedException("Not authenticated.")
+    if not user.is_superuser:
+        raise ForbiddenException("Admin access required.")
 
     return {c.name: getattr(user, c.name) for c in User.__table__.columns}
 
